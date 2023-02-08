@@ -50,21 +50,23 @@ async def on_message(message):
         return
 
     message_content = message.content.lower()
-    # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
-    if "--imagemode" in args:
-        response = "Unable to process request, you are not allowed to use the `--imagemode` option"
-    else:
-        await bot.send_message(message.channel, "```diff\n- No input file provided\n```")
-        msg = await bot.wait_for_message(timeout= 30, author=message.author, check=check)
-        if msg is None:
-            await bot.send_message(message.channel, "```diff\n- No input file provided\n```")
-            return
-      
-        # Create random ID for this program
-        rand_id = str(uuid.uuid1())
-        print("Process with uuid: \"" + rand_id + "\" started.")
-        # Run the astro8 emulator
-  	    subprocess.run(['ls', '-l'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    codeContent = "".join(message_content.split('\n')[1:])
+    if "/astro8" in message_content:
+        # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
+        if "--imagemode" in message_content:
+            response = "Unable to process request, you are not allowed to use the `--imagemode` option"
+        else:
+            await bot.send_message(message.channel, "Started `astro8` with arguments: \"" + "".join(message_content.split()[1:]) + "\"\n\n ***Now please provide a file OR url to execute in this instance:***")
+            msg = await bot.wait_for_message(timeout= 30, author=message.author, check=check)
+            if msg is None:
+                await bot.send_message(message.channel, "```diff\n- No input file or URL provided\n```")
+                return
+
+            # Create random ID for this program
+            rand_id = str(uuid.uuid1())
+            print("Process with uuid: \"" + rand_id + "\" started.")
+            # Run the astro8 emulator
+            programOutput = subprocess.run(['~/Code/Astro8-Computer/Astro8-Emulator/linux-build/astro8', message_content.split()[1:]], stdout=subprocess.PIPE).stdout.decode('utf-8')
         
 
     await ctx.channel.send(response)
