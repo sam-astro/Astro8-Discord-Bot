@@ -40,7 +40,7 @@ def StartEmulator(file):
     return subprocess.run('../Astro8-Computer/Astro8-Emulator/linux-build/astro8 --imagemode 10 '+file, stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
 
 def ConvertImages():
-    subprocess.run('convert -loop 0 -delay 10 -page +0+0 $(ls ./frames -1 | sort -n -t'-' -k3) ./frames/output.gif')
+    subprocess.run('convert -loop 0 -delay 10 -page +0+0 $(ls ./'+rand_id+'/frames/ -1 | sort -n -t'-' -k3) ./'+rand_id+'/frames/output.gif')
 
 
 token = os.getenv("DISCORD_TOKEN")
@@ -125,12 +125,12 @@ async def on_message(message):
                     codeContent = GetURLContent(url) # Get file from url
                     if codeContent:
                         # Save content to file
-                        text_file = open("./" + rand_id + "/file.a8", "w")
+                        text_file = open("./"+rand_id+"/file.a8", "w")
                         n = text_file.write(codeContent)
                         text_file.close()
                         # Start emulator process
                         programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
-                        await message.channel.send(file=discord.File('./frames/output.gif'))
+                        await message.channel.send(file=discord.File('./'+rand_id+'/frames/output.gif'))
                         response = programOutput
                         await mainStatusMessage.edit(content= "```Done executing```")
                         return
@@ -163,7 +163,8 @@ async def on_message(message):
         # Run the astro8 emulator
 #            programOutput = subprocess.run(['~/development/Astro8-Computer/Astro8-Emulator/linux-build/./astro8', "".join(message_content.split()[1:])], stdout=subprocess.PIPE).stdout.decode('utf-8')
         programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
-        await message.channel.send(file=discord.File('./frames/output.gif'))
+        await message.channel.send(file=discord.File('./'+rand_id+'/frames/output.gif'))
+        #os.rmdir("./"+rand_id+"/")
         response = programOutput
 
     #await message.channel.send( response)
