@@ -40,7 +40,7 @@ def StartEmulator(file):
     return subprocess.run('../Astro8-Computer/Astro8-Emulator/linux-build/astro8 --imagemode 10 '+file, stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
 
 def ConvertImages():
-    subprocess.run('convert -loop 0 -delay 10 -page +0+0 $(ls ./'+rand_id+'/frames/ -1 | sort -n -t'-' -k3) ./'+rand_id+'/frames/output.gif')
+    subprocess.run('convert -loop 0 -delay 10 $(ls ./'+rand_id+'/frames/ -1 | sort -n -t'-' -k3) ./'+rand_id+'/frames/output.gif')
     
 def CompileYabal(path):
     originalPath = path
