@@ -41,6 +41,18 @@ def StartEmulator(file):
 
 def ConvertImages():
     subprocess.run('convert -loop 0 -delay 10 -page +0+0 $(ls ./'+rand_id+'/frames/ -1 | sort -n -t'-' -k3) ./'+rand_id+'/frames/output.gif')
+    
+def CompileYabal(path):
+    originalPath = path
+    outStr = ""
+    # Compile Yabal
+    outStr = subprocess.run('../yabal build '+path, stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
+    # Replace uncompiled version of file with compiled version
+    path = path + ".asm"
+    os.remove(originalPath)
+    os.rename(path, originalPath)
+
+    return outStr
 
 
 token = os.getenv("DISCORD_TOKEN")
@@ -97,6 +109,8 @@ async def on_message(message):
 
     print(message_content)
     if message_content.split('/n')[0].strip().lower().startswith('/a8'):
+        isYabal = False
+        
         response = response + "\nastro8"
         # Create random ID for this program
         rand_id = str(uuid.uuid1())
@@ -107,6 +121,11 @@ async def on_message(message):
         if "--imagemode" in message_content:
             await mainStatusMessage.edit(content= "```diff\n- Unable to process request, you are not allowed to use the \"--imagemode\" option```")
             return
+        
+        # If Yabal option is specified
+        if "--yabal" in message_content:
+            isYabal = True
+            message_content = message_content.replace("--yabal", "")
 
         codeContent = ("".join(message_content.split('\n')[1:])).replace("```", "").strip()
         url = ""
@@ -122,14 +141,17 @@ async def on_message(message):
             if IsProperURL(url):
                 try:
                     # Make url request
-                    codeContent = GetURLContent(url) # Get file from url
+                    codeContent = await GetURLContent(url) # Get file from url
                     if codeContent:
                         # Save content to file
                         text_file = open("./"+rand_id+"/file.a8", "w")
                         n = text_file.write(codeContent)
                         text_file.close()
+                        # If the file is in the Yabal formt, compile it first
+                        if isYabal:
+                            await CompileYabal("./"+rand_id+"/file.a8")
                         # Start emulator process
-                        programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
+                        programOutput = await StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
                         await message.channel.send(file=discord.File('./'+rand_id+'/frames/output.gif'))
                         response = programOutput
                         await mainStatusMessage.edit(content= "```Done executing```")
@@ -159,10 +181,18 @@ async def on_message(message):
         if msg is None:
             await message.channel.send( "```diff\n- No input file or URL provided\n```")
             return
+        
+        # Save content to file
+        text_file = open("./"+rand_id+"/file.a8", "w")
+        n = text_file.write(msg)
+        text_file.close()
+        # If the file is in the Yabal formt, compile it first
+        if isYabal:
+            await CompileYabal("./"+rand_id+"/file.a8")
 
         # Run the astro8 emulator
 #            programOutput = subprocess.run(['~/development/Astro8-Computer/Astro8-Emulator/linux-build/./astro8', "".join(message_content.split()[1:])], stdout=subprocess.PIPE).stdout.decode('utf-8')
-        programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
+        programOutput = await StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
         await message.channel.send(file=discord.File('./'+rand_id+'/frames/output.gif'))
         #os.rmdir("./"+rand_id+"/")
         response = programOutput
