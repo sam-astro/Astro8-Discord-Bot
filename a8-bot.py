@@ -102,7 +102,7 @@ async def on_message(message):
 
             # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
             if "github.com" in url:
-                url = url.replace("github.com", "raw.githubusercontent.com")
+                url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
             import urllib.request
             # Check if the file actually exists, and doesn't have a 404 error
