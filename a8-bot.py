@@ -7,6 +7,7 @@ import subprocess
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord import edit
 
 import re
 
@@ -32,6 +33,14 @@ def IsProperURL(url):  # checks status for url, returns false if error or 404
         print(url + "\tNA FAILED TO CONNECT\t" + str(e))
     return False
 
+def GetURLContent(url):
+    return urllib.request.urlopen(url).read().decode() # Get file from url
+
+def StartEmulator(file):
+    return subprocess.run('../Astro8-Computer/Astro8-Emulator/linux-build/astro8 --imagemode 10 '+file, stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
+
+def ConvertImages():
+    subprocess.run('convert -loop 0 -delay 10 -page +0+0 $(ls ./frames -1 | sort -n -t'-' -k3) ./frames/output.gif')
 
 
 token = os.getenv("DISCORD_TOKEN")
@@ -86,18 +95,22 @@ async def on_message(message):
 
     message_content = message.content
 
-    response = "received message..."
-
     print(message_content)
-    if "/a8compiler" in message_content.lower():
+    if message_content.split('/n')[0].strip().lower().startswith('/a8'):
         response = response + "\nastro8"
         # Create random ID for this program
         rand_id = str(uuid.uuid1())
-        print("Process with uuid: \"" + rand_id + "\" started.")
+        os.mkdir("./"+rand_id+"/")
+        mainStatusMessage = await message.channel.send("***Process with uuid: \"" + rand_id + "\" started, wait...***")
+        
+        # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
+        if "--imagemode" in message_content:
+            await mainStatusMessage.edit(content= "```diff\n- Unable to process request, you are not allowed to use the \"--imagemode\" option```")
+            return
 
-        codeContent = "".join(message_content.split('\n')[1:])
+        codeContent = ("".join(message_content.split('\n')[1:])).replace("```", "").strip()
         url = ""
-        if len(FindURL(codeContent)) != 0: # The user is trying to include a file from the web, make sure it is valid.
+        if len(FindURL(codeContent.split('\n')[0])) != 0: # The user is trying to include a file from the web, make sure it is valid.
             url = FindURL(codeContent)[0]
 
             # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
@@ -109,38 +122,50 @@ async def on_message(message):
             if IsProperURL(url):
                 try:
                     # Make url request
-                    codeContent = urllib.request.urlretrieve(url, str(rand_id)) # Get file from url
+                    codeContent = GetURLContent(url) # Get file from url
                     if codeContent:
-                        programOutput = subprocess.run('../Astro8-Computer/Astro8-Emulator/linux-build/astro8 --imagemode 10 '.join(message_content.split()[1:]), stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
+                        # Save content to file
+                        text_file = open("./" + rand_id + "/file.a8", "w")
+                        n = text_file.write(codeContent)
+                        text_file.close()
+                        # Start emulator process
+                        programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
+                        await message.channel.send(file=discord.File('./frames/output.gif'))
                         response = programOutput
-                        await message.channel.send( "```Done executing```")
+                        await mainStatusMessage.edit(content= "```Done executing```")
+                        return
+                    else:
+                        await mainStatusMessage.edit(content= "```diff\n- Invalid URL File: \""+url.strip()+"\"\n```")
                         return
                 except: # If the url is invalid, send error message
-                    await message.channel.send( "```diff\n- Invalid URL File: \""+url.strip()+"\"\n```")
+                    await mainStatusMessage.edit(content= "```diff\n- Invalid URL File: \""+url.strip()+"\"\n```")
                     return
             else:
-                await message.channel.send( "```diff\n- Invalid URL File: \""+url.strip()+"\"\n```")
+                await mainStatusMessage.edit(content= "```diff\n- Invalid URL File: \""+url.strip()+"\"\n```")
                 return
 
         def check(m):
             return m.author == message.author and m.channel == message.channel
 
-        # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
-        if "--imagemode" in message_content:
-            response = "Unable to process request, you are not allowed to use the `--imagemode` option"
-        # Else start executing the program
+        msg = ""
+        # If there is only 1 line in the input, assume url
+        if len(codeContent.split('\n'))>1:
+            msg = codeContent
+        # Otherwise, ask for text or file input
         else:
             await message.channel.send( "Started `astro8` with arguments: \"" + "".join(message_content.split()[1:]) + "\"\n\n ***Now please provide a file OR url to execute in this instance:***")
             msg = await client.wait_for('message',timeout= 30, check=check)
-            if msg is None:
-                await message.channel.send( "```diff\n- No input file or URL provided\n```")
-                return
+            msg = msg.replace("```", "").strip()
+        if msg is None:
+            await message.channel.send( "```diff\n- No input file or URL provided\n```")
+            return
 
-            # Run the astro8 emulator
+        # Run the astro8 emulator
 #            programOutput = subprocess.run(['~/development/Astro8-Computer/Astro8-Emulator/linux-build/./astro8', "".join(message_content.split()[1:])], stdout=subprocess.PIPE).stdout.decode('utf-8')
-            programOutput = subprocess.run('../Astro8-Computer/Astro8-Emulator/linux-build/astro8 --imagemode 10 '.join(message_content.split()[1:]), stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
-            response = programOutput
+        programOutput = StartEmulator("".join(message_content.split()[1:])+" ./" + rand_id + "/file.a8")
+        await message.channel.send(file=discord.File('./frames/output.gif'))
+        response = programOutput
 
-    await message.channel.send( response)
+    #await message.channel.send( response)
 
 client.run(token)
