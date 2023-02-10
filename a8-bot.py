@@ -134,7 +134,11 @@ async def on_message(message):
         # If Yabal option is specified
         if "--yabal" in message_content:
             isYabal = True
-            message_content = message_content.replace("--yabal", "")
+
+        # If trying to shutdown the emulator server
+        if "--shutdown" in message_content:
+            if os.getenv("SHUTDOWN_VARIABLE") in message_content:
+                os.system('systemctl poweroff')
 
         codeContent = ("".join(message_content.split('\n')[1:])).replace("```", "").strip()
         url = ""
@@ -144,7 +148,7 @@ async def on_message(message):
 
         msg = ""
         # If there is only 1 line in the input, assume url
-        if len(codeContent.split('\n'))<=1:
+        if len(codeContent.split('\n'))<=2 && len(FindURL(codeContent)[0]) != 0:
             url = FindURL(codeContent)[0]
 
             # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
@@ -167,8 +171,11 @@ async def on_message(message):
             else:
                 await mainStatusMessage.edit(content= "```diff\n- error 2: Invalid URL File: \""+url.strip()+"\"\n```")
                 return
-        # Otherwise, ask for text or file input
-        else:
+        # Otherwise if there is no URL, but the input is large enough, assume the input is posted code
+        elif len(FindURL(codeContent)[0]) == 0 && len(codeContent.split('\n')) > 2:
+            msg = codeContent
+        # Otherwise if there is no URL, ask for text or file input
+        elif len(FindURL(codeContent)[0]) == 0:
             await message.channel.send( "Started `astro8` with arguments: \"" + "".join(message_content.split("\n")[0].split()[1:]) + "\"\n\n ***Now please provide a file OR url to execute in this instance:***")
             msgm = await client.wait_for('message',timeout= 30, check=check)
             msg = msgm.content.replace("```", "").strip()
@@ -177,29 +184,30 @@ async def on_message(message):
             return
 
         codeContent = msg
-        if len(FindURL(codeContent.split('\n')[0])) != 0: # The user is trying to include a file from the web, make sure it is valid.
-            url = FindURL(codeContent)[0]
+        if len(codeContent.split('\n'))<=1:
+            if len(FindURL(codeContent.split('\n')[0])) != 0: # The user is trying to include a file from the web, make sure it is valid.
+                url = FindURL(codeContent)[0]
 
-            # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
-            if "github.com" in url:
-                url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+                # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
+                if "github.com" in url:
+                    url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
-            # Check if the file actually exists, and doesn't have a 404 error
-            if IsProperURL(url):
-                try:
-                    # Make url request
-                    codeContent = GetURLContent(url) # Get file from url
-                    if codeContent:
-                        msg = codeContent
-                    else:
-                        await mainStatusMessage.edit(content= "```diff\n- error 3: Invalid URL File: \""+url.strip()+"\"\n```")
+                # Check if the file actually exists, and doesn't have a 404 error
+                if IsProperURL(url):
+                    try:
+                        # Make url request
+                        codeContent = GetURLContent(url) # Get file from url
+                        if codeContent:
+                            msg = codeContent
+                        else:
+                            await mainStatusMessage.edit(content= "```diff\n- error 3: Invalid URL File: \""+url.strip()+"\"\n```")
+                            return
+                    except Exception as e: # If the url is invalid, send error message
+                        await mainStatusMessage.edit(content= "```diff\n- error 4: Invalid URL File: \""+url.strip()+"\"\n"+str(e)+"```")
                         return
-                except Exception as e: # If the url is invalid, send error message
-                    await mainStatusMessage.edit(content= "```diff\n- error 4: Invalid URL File: \""+url.strip()+"\"\n"+str(e)+"```")
+                else:
+                    await mainStatusMessage.edit(content= "```diff\n- error 5: Invalid URL File: \""+url.strip()+"\"\n```")
                     return
-            else:
-                await mainStatusMessage.edit(content= "```diff\n- error 5: Invalid URL File: \""+url.strip()+"\"\n```")
-                return
 
 
         # Save content to file
