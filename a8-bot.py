@@ -132,22 +132,26 @@ async def on_message(message):
 #    print(message_content)
     if message_content.split('/n')[0].strip().lower().startswith('/a8'):
         isYabal = False
-        
+
         response = response + "\nastro8"
         # Create random ID for this program
         rand_id = str(uuid.uuid1())
         os.mkdir("./requests/"+rand_id+"/")
         mainStatusMessage = await message.channel.send("***Process with uuid: \"" + rand_id + "\" started, wait...***")
-        
+
         # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
         if "--imagemode" in message_content:
             await mainStatusMessage.edit(content= "```diff\n- Unable to process request, you are not allowed to use the \"--imagemode\" option```")
             return
-        
+
         # If Yabal option is specified
         if "--yabal" in message_content:
             isYabal = True
-            message_content = message_content.replace("--yabal", "")
+
+        # If trying to shutdown the emulator server
+        if "--shutdown" in message_content:
+            if os.getenv("SHUTDOWN_VARIABLE") in message_content:
+                os.system('systemctl poweroff')
 
         codeContent = ("".join(message_content.split('\n')[1:])).replace("```", "").strip()
         url = ""
@@ -214,7 +218,6 @@ async def on_message(message):
                 await mainStatusMessage.edit(content= "```diff\n- error 5: Invalid URL File: \""+url.strip()+"\"\n```")
                 return
 
-        
         # Save content to file
         text_file = open("./requests/"+rand_id+"/file.a8", "w")
         n = text_file.write(msg)
