@@ -67,13 +67,20 @@ def CompileYabal(path):
     originalPath = path
     outStr = ""
     # Compile Yabal
-    outStr = subprocess.run('~/development/Yabal/yabal build '+path, stdout=subprocess.PIPE, shell=True).stdout.decode('utf-8')
-    # Replace uncompiled version of file with compiled version
-    path = path.replace("file.a8", "file.asm")
-    os.remove(originalPath)
-    os.rename(path, originalPath)
+    try:
+        outStr = subprocess.run('~/development/Yabal/yabal build '+path, shell=True, capture_output=True, text=True).stdout
+        # Replace uncompiled version of file with compiled version
+        path = path.replace("file.a8", "file.asm")
+        os.remove(originalPath)
+        os.rename(path, originalPath)
+    except:
+        print("Error in Yabal code compilation")
 
-    return outStr
+    # Check if there is an error
+    if ("Error:" in outStr) or (outStr == ""):
+        return "```\n"+outStr+"\n```"
+    else:
+        return ""
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -131,6 +138,7 @@ async def on_message(message):
 
 #    print(message_content)
     if message_content.split('/n')[0].strip().lower().startswith('/a8'):
+        message_content = message_content.replace('/a8', '')
         isYabal = False
 
         response = response + "\nastro8"
@@ -147,13 +155,14 @@ async def on_message(message):
         # If Yabal option is specified
         if "--yabal" in message_content:
             isYabal = True
+            message_content = message_content.replace('--yabal', '')
 
         # If trying to shutdown the emulator server
         if "--shutdown" in message_content:
             if os.getenv("SHUTDOWN_VARIABLE") in message_content:
                 os.system('systemctl poweroff')
 
-        codeContent = ("".join(message_content.split('\n')[1:])).replace("```", "").strip()
+        codeContent = (message_content).replace("```", "").strip()
         url = ""
 
         def check(m):
@@ -162,11 +171,12 @@ async def on_message(message):
         msg = ""
         # If there is only 1 line in the input, assume url
         if len(codeContent.split('\n'))<=1:
+            print("Assuming url in: \"" + codeContent + "\"")
             url = FindURL(codeContent)[0]
 
             # If the file is pointing to a github address, but isn't the RAW version, change it to the RAW version.
             if "github.com" in url:
-                url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+                url = url.replace("github.com", "raw.githubusercontent.com").reaplce("/tree/", "/").replace("/blob/", "/")
 
             # Check if the file actually exists, and doesn't have a 404 error
             if IsProperURL(url):
@@ -222,9 +232,10 @@ async def on_message(message):
         text_file = open("./requests/"+rand_id+"/file.a8", "w")
         n = text_file.write(msg)
         text_file.close()
-        # If the file is in the Yabal formt, compile it first
+        # If the file is a Yabal program, compile it first
         if isYabal:
-            CompileYabal("./requests/"+rand_id+"/file.a8")
+            outYabal = CompileYabal("./requests/"+rand_id+"/file.a8")
+            print(outYabal)
 
         # Run the astro8 emulator
 #            programOutput = subprocess.run(['~/development/Astro8-Computer/Astro8-Emulator/linux-build/./astro8', "".join(message_content.split()[1:])], stdout=subprocess.PIPE).stdout.decode('utf-8')
