@@ -145,7 +145,7 @@ async def on_message(message):
         # Create random ID for this program
         rand_id = str(uuid.uuid1())
         os.mkdir("./requests/"+rand_id+"/")
-        mainStatusMessage = await message.channel.send("***Process with uuid: \"" + rand_id + "\" started, wait...***")
+        mainStatusMessage = await message.channel.send("***Starting, please wait...***")
 
         # Make sure the user isn't trying to use image only mode, because this is necessary for the bot's functionality
         if "--imagemode" in message_content:
@@ -182,6 +182,7 @@ async def on_message(message):
             if IsProperURL(url):
                 try:
                     # Make url request
+                    await mainStatusMessage.edit(content= "***Getting data from url...***")
                     codeContent = GetURLContent(url) # Get file from url
                     if codeContent:
                         msg = codeContent
@@ -196,8 +197,12 @@ async def on_message(message):
                 return
         # Otherwise, ask for text or file input
         else:
-            await message.channel.send( "Started `astro8` with arguments: \"" + "".join(message_content.split("\n")[0].split()[1:]) + "\"\n\n ***Now please provide a file OR url to execute in this instance:***")
+            await mainStatusMessage.edit( "***Now please provide a file OR url to execute in this instance:***")
+            try:
             msgm = await client.wait_for('message',timeout= 30, check=check)
+            except:
+                await mainStatusMessage.edit(content= "```diff\n- Timed out, please provide a url or file within 30 seconds of prompting /a8\n```")
+                return
             msg = msgm.content.replace("```", "").strip()
         if msg is None:
             await message.channel.send( "```diff\n- No input file or URL provided\n```")
@@ -215,6 +220,7 @@ async def on_message(message):
             if IsProperURL(url):
                 try:
                     # Make url request
+                    await mainStatusMessage.edit(content= "***Getting data from url...***")
                     codeContent = GetURLContent(url) # Get file from url
                     if codeContent:
                         msg = codeContent
@@ -232,16 +238,21 @@ async def on_message(message):
         text_file = open("./requests/"+rand_id+"/file.a8", "w")
         n = text_file.write(msg)
         text_file.close()
-        # If the file is a Yabal program, compile it first
+
+        # If the file is in the Yabal format, compile it first
         if isYabal:
-            outYabal = CompileYabal("./requests/"+rand_id+"/file.a8")
+            await mainStatusMessage.edit(content= "***Compiling Yabal...***")
+            CompileYabal("./requests/"+rand_id+"/file.a8")
             print(outYabal)
 
         # Run the astro8 emulator
 #            programOutput = subprocess.run(['~/development/Astro8-Computer/Astro8-Emulator/linux-build/./astro8', "".join(message_content.split()[1:])], stdout=subprocess.PIPE).stdout.decode('utf-8')
+
+        await mainStatusMessage.edit(content= "***Emulating...***")
         StartEmulator("./requests/" + rand_id + "/file.a8")
+        await mainStatusMessage.edit(content= "***Creating GIF...***")
         ConvertImages(rand_id)
-        await message.channel.send(file=discord.File('./requests/'+rand_id+'/frames/output.gif'))
+        await mainStatusMessage.edit(content="",file=discord.File('./requests/'+rand_id+'/frames/output.gif'))
         shutil.rmtree("./requests/"+rand_id+"/")
         #response = programOutput
 
